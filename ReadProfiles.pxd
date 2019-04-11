@@ -13,6 +13,7 @@ cdef class ReadProfiles:
         double [:] qv
         double [:] ql
         double [:] qi
+        double [:] cf
         double [:] qt
         double [:] rho
         double toa_sw

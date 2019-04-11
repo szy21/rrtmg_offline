@@ -31,11 +31,10 @@ gfortran -ffixed-line-length-none -freal-4-real-8 -fno-range-check -fPIC \
   ${MPATH_LW}/rrlw_kg13.f90 ${MPATH_LW}/rrlw_kg14.f90 ${MPATH_LW}/rrlw_kg15.f90 ${MPATH_LW}/rrlw_kg16.f90 \
   ${MPATH_LW}/rrlw_ncpar.f90 ${MPATH_LW}/rrlw_ref.f90 ${MPATH_LW}/rrlw_tbl.f90 ${MPATH_LW}/rrlw_vsn.f90 \
   ${MPATH_LW}/rrlw_wvn.f90 \
-  ${CPATH_LW}/mcica_random_numbers.f90 ${CPATH_LW}/mcica_subcol_gen_lw.f90 \
   ${CPATH_LW}/rrtmg_lw_cldprmc.f90 ${CPATH_LW}/rrtmg_lw_cldprop.f90 ${CPATH_LW}/rrtmg_lw_rtrn.f90 \
   ${CPATH_LW}/rrtmg_lw_rtrnmc.f90 ${CPATH_LW}/rrtmg_lw_rtrnmr.f90 ${CPATH_LW}/rrtmg_lw_setcoef.f90 \
   ${CPATH_LW}/rrtmg_lw_taumol.f90 ${CPATH_LW}/rrtmg_lw_k_g.f90 ${CPATH_LW}/rrtmg_lw_init.f90 \
-  ${CPATH_LW}/rrtmg_lw_rad.f90 ${BPATH}/rrtmg_lw_wrapper.f90
+  ${CPATH_LW}/rrtmg_lw_rad.nomcica.f90 ${BPATH}/rrtmg_lw_wrapper.f90
 
 # build RRTMG_SW - Note that parkind.f90 is the same as RRTMG_LW
 gfortran -ffixed-line-length-none -freal-4-real-8 -fno-range-check -fPIC \
@@ -47,12 +46,11 @@ gfortran -ffixed-line-length-none -freal-4-real-8 -fno-range-check -fPIC \
   ${MPATH_SW}/rrsw_kg28.f90 ${MPATH_SW}/rrsw_kg29.f90 \
   ${MPATH_SW}/rrsw_ncpar.f90 ${MPATH_SW}/rrsw_ref.f90 ${MPATH_SW}/rrsw_tbl.f90 ${MPATH_SW}/rrsw_vsn.f90 \
   ${MPATH_SW}/rrsw_wvn.f90 \
-  ${CPATH_SW}/mcica_random_numbers.f90 ${CPATH_SW}/mcica_subcol_gen_sw.f90 \
-  ${CPATH_SW}/rrtmg_sw_cldprmc.f90 ${CPATH_SW}/rrtmg_sw_cldprop.f90 ${CPATH_SW}/rrtmg_sw_reftra.f90 \
+  ${CPATH_SW}/rrtmg_sw_cldprmc.f90 ${CPATH_SW}/rrtmg_sw_cldprop.f90 ${CPATH_SW}/rrtmg_sw_reftra.f90\
   ${CPATH_SW}/rrtmg_sw_vrtqdr.f90 ${CPATH_SW}/rrtmg_sw_taumol.f90 \
   ${CPATH_SW}/rrtmg_sw_spcvmc.f90 ${CPATH_SW}/rrtmg_sw_spcvrt.f90 ${CPATH_SW}/rrtmg_sw_setcoef.f90 \
   ${CPATH_SW}/rrtmg_sw_k_g.f90 ${CPATH_SW}/rrtmg_sw_init.f90 \
-  ${CPATH_SW}/rrtmg_sw_rad.f90 ${BPATH}/rrtmg_sw_wrapper.f90
+  ${CPATH_SW}/rrtmg_sw_rad.nomcica.f90 ${BPATH}/rrtmg_sw_wrapper.f90
   
 ld -r parkind.o \
   parrrtm.o rrlw_cld.o rrlw_con.o \
@@ -62,7 +60,6 @@ ld -r parkind.o \
   rrlw_kg13.o rrlw_kg14.o rrlw_kg15.o rrlw_kg16.o \
   rrlw_ncpar.o rrlw_ref.o rrlw_tbl.o rrlw_vsn.o \
   rrlw_wvn.o \
-  mcica_random_numbers.o mcica_subcol_gen_lw.o mcica_subcol_gen_sw.o \
   parrrsw.o rrsw_aer.o rrsw_cld.o rrsw_con.o \
   rrsw_kg16.o rrsw_kg17.o rrsw_kg18.o rrsw_kg19.o \
   rrsw_kg20.o rrsw_kg21.o rrsw_kg22.o rrsw_kg23.o \
@@ -77,6 +74,6 @@ ld -r parkind.o \
   rrtmg_sw_vrtqdr.o rrtmg_sw_taumol.o \
   rrtmg_sw_spcvmc.o rrtmg_sw_spcvrt.o rrtmg_sw_setcoef.o \
   rrtmg_sw_k_g.o rrtmg_sw_init.o \
-  rrtmg_lw_rad.o rrtmg_lw_wrapper.o\
-  rrtmg_sw_rad.o rrtmg_sw_wrapper.o \
+  rrtmg_lw_rad.nomcica.o rrtmg_lw_wrapper.o\
+  rrtmg_sw_rad.nomcica.o rrtmg_sw_wrapper.o \
   -o ../rrtmg_combined.o

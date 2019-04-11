@@ -27,8 +27,10 @@ import pickle as pkl
 # Note: the RRTM modules are compiled in the 'RRTMG' directory:
 cdef extern:
     void c_rrtmg_lw_init(double *cpdair)
-    void c_rrtmg_lw (
-             int *ncol    ,int *nlay    ,int *icld    ,int *idrv    ,
+    void c_mcica_subcol_lw (int *iplon, int *ncol, int *nlay, int *icld, int *permuteseed, int *irng, 
+             double *play, double *cldfrac, double *ciwp, double *clwp, double *rei, double *rel, double *tauc, 
+             double *cldfmcl, double *ciwpmcl, double *clwpmcl, double *reicmcl, double *relqmcl, double *taucmcl)
+    void c_rrtmg_lw (int *ncol    ,int *nlay    ,int *icld    ,int *idrv    ,
              double *play    ,double *plev    ,double *tlay    ,double *tlev    ,double *tsfc    ,
              double *h2ovmr  ,double *o3vmr   ,double *co2vmr  ,double *ch4vmr  ,double *n2ovmr  ,double *o2vmr,
              double *cfc11vmr,double *cfc12vmr,double *cfc22vmr,double *ccl4vmr ,double *emis    ,
@@ -36,8 +38,13 @@ cdef extern:
              double *taucld  ,double *cicewp  ,double *cliqwp  ,double *reice   ,double *reliq   ,
              double *tauaer  ,
              double *uflx    ,double *dflx    ,double *hr      ,double *uflxc   ,double *dflxc,  double *hrc,
-             double *duflx_dt,double *duflxc_dt )
+             double *duflx_dt,double *duflxc_dt)
     void c_rrtmg_sw_init(double *cpdair)
+    void c_mcica_subcol_sw(int *iplon, int *ncol, int *nlay, int *icld, int *permuteseed, int *irng, 
+             double *play, double *cldfrac, double *ciwp, double *clwp, double *rei, double *rel, 
+             double *tauc, double *ssac, double *asmc, double *fsfc,
+             double *cldfmcl, double *ciwpmcl, double *clwpmcl, double *reicmcl, double *relqmcl,
+             double *taucmcl, double *ssacmcl, double *asmcmcl, double *fsfcmcl)
     void c_rrtmg_sw (int *ncol    ,int *nlay    ,int *icld    ,int *iaer    ,
              double *play    ,double *plev    ,double *tlay    ,double *tlev    ,double *tsfc    ,
              double *h2ovmr  ,double *o3vmr   ,double *co2vmr  ,double *ch4vmr  ,double *n2ovmr  ,double *o2vmr,
@@ -84,7 +91,7 @@ cdef class Radiation:
         # Namelist options related to insolation
         self.dyofyr = 0#80
         self.adjes = 1.0
-        self.scon = 1360.0
+        self.scon = 680.0
         #self.coszen = 2.0/np.pi
         self.toa_sw = namelist['radiation']['toa_sw']
         self.coszen = self.toa_sw/self.scon
@@ -406,6 +413,8 @@ cdef class Radiation:
             Py_ssize_t nz_full = self.n_ext + nz
             Py_ssize_t k
             Py_ssize_t n_pencils = 1
+            Py_ssize_t ngptlw = 140
+            Py_ssize_t ngptsw = 112
 
         cdef:
             double [:] rl_full = np.zeros((nz_full,), dtype=np.double, order='F')
@@ -426,22 +435,37 @@ cdef class Radiation:
             double [:] cfc22vmr_in = np.zeros((nz_full,),dtype=np.double,order='F')
             double [:] ccl4vmr_in = np.zeros((nz_full,),dtype=np.double,order='F')
             double [:,:] emis_in = np.ones((n_pencils,16),dtype=np.double,order='F') * 0.95
-            double [:] cldfr_in  = np.zeros((nz_full,),dtype=np.double,order='F')
-            double [:] cicewp_in = np.zeros((nz_full,),dtype=np.double,order='F')
-            double [:] cliqwp_in = np.zeros((nz_full,),dtype=np.double,order='F')
-            double [:] reice_in  = np.zeros((nz_full,),dtype=np.double,order='F')
-            double [:] reliq_in  = np.zeros((nz_full,),dtype=np.double,order='F')
+            double [:] cldfr_raw  = np.zeros((nz_full,),dtype=np.double,order='F')
+            double [:,:] cldfr_lw_in  = np.zeros((ngptlw,nz_full,),dtype=np.double,order='F')
+            double [:,:] cldfr_sw_in  = np.zeros((ngptsw,nz_full,),dtype=np.double,order='F')
+            double [:] cicewp_raw = np.zeros((nz_full,),dtype=np.double,order='F')
+            double [:,:] cicewp_lw_in = np.zeros((ngptlw,nz_full,),dtype=np.double,order='F')
+            double [:,:] cicewp_sw_in = np.zeros((ngptsw,nz_full,),dtype=np.double,order='F')
+            double [:] cliqwp_raw = np.zeros((nz_full,),dtype=np.double,order='F')
+            double [:,:] cliqwp_lw_in = np.zeros((ngptlw,nz_full,),dtype=np.double,order='F')
+            double [:,:] cliqwp_sw_in = np.zeros((ngptsw,nz_full,),dtype=np.double,order='F')
+            double [:] reice_raw  = np.zeros((nz_full,),dtype=np.double,order='F')
+            double [:] reice_lw_in  = np.zeros((nz_full,),dtype=np.double,order='F')
+            double [:] reice_sw_in  = np.zeros((nz_full,),dtype=np.double,order='F')
+            double [:] reliq_raw  = np.zeros((nz_full,),dtype=np.double,order='F')
+            double [:] reliq_lw_in  = np.zeros((nz_full,),dtype=np.double,order='F')
+            double [:] reliq_sw_in  = np.zeros((nz_full,),dtype=np.double,order='F')
             double [:] coszen_in = np.ones((n_pencils),dtype=np.double,order='F') *self.coszen
             double [:] asdir_in = np.ones((n_pencils),dtype=np.double,order='F') * self.adir
             double [:] asdif_in = np.ones((n_pencils),dtype=np.double,order='F') * self.adif
             double [:] aldir_in = np.ones((n_pencils),dtype=np.double,order='F') * self.adir
             double [:] aldif_in = np.ones((n_pencils),dtype=np.double,order='F') * self.adif
-            double [:,:] taucld_lw_in  = np.zeros((16,nz_full,),dtype=np.double,order='F')
+            double [:,:] taucld_lw_raw  = np.zeros((ngptlw,nz_full,),dtype=np.double,order='F')
+            double [:,:] taucld_lw_in  = np.zeros((ngptlw,nz_full,),dtype=np.double,order='F')
             double [:,:] tauaer_lw_in  = np.zeros((nz_full,16),dtype=np.double,order='F')
-            double [:,:] taucld_sw_in  = np.zeros((14,nz_full,),dtype=np.double,order='F')
-            double [:,:] ssacld_sw_in  = np.zeros((14,nz_full,),dtype=np.double,order='F')
-            double [:,:] asmcld_sw_in  = np.zeros((14,nz_full,),dtype=np.double,order='F')
-            double [:,:] fsfcld_sw_in  = np.zeros((14,nz_full,),dtype=np.double,order='F')
+            double [:,:] taucld_sw_raw  = np.zeros((ngptsw,nz_full,),dtype=np.double,order='F')
+            double [:,:] taucld_sw_in  = np.zeros((ngptsw,nz_full,),dtype=np.double,order='F')
+            double [:,:] ssacld_sw_raw  = np.zeros((ngptsw,nz_full,),dtype=np.double,order='F')
+            double [:,:] ssacld_sw_in  = np.zeros((ngptsw,nz_full,),dtype=np.double,order='F')
+            double [:,:] asmcld_sw_raw  = np.zeros((ngptsw,nz_full,),dtype=np.double,order='F')
+            double [:,:] asmcld_sw_in  = np.zeros((ngptsw,nz_full,),dtype=np.double,order='F')
+            double [:,:] fsfcld_sw_raw  = np.zeros((ngptsw,nz_full,),dtype=np.double,order='F')
+            double [:,:] fsfcld_sw_in  = np.zeros((ngptsw,nz_full,),dtype=np.double,order='F')
             double [:,:] tauaer_sw_in  = np.zeros((nz_full,14),dtype=np.double,order='F')
             double [:,:] ssaaer_sw_in  = np.zeros((nz_full,14),dtype=np.double,order='F')
             double [:,:] asmaer_sw_in  = np.zeros((nz_full,14),dtype=np.double,order='F')
@@ -474,15 +498,16 @@ cdef class Radiation:
             tlay_in[k] = pf.temperature[k]
             h2ovmr_in[k] = pf.qv[k]/ (1.0 - pf.qv[k])* Rv/Rd * self.h2o_factor
             rl_full[k] = (pf.ql[k])/ (1.0 - pf.qv[k])
-            # ri_full[k] = (pf.qi[k])/ (1.0 - pf.qv[k])
-            ri_full[k] = 0.0
-            cliqwp_in[k] = ((pf.ql[k])/ (1.0 - pf.qv[k])
+            ri_full[k] = (pf.qi[k])/ (1.0 - pf.qv[k])
+            #ri_full[k] = 0.0
+            cliqwp_raw[k] = ((pf.ql[k])/ (1.0 - pf.qv[k])
                                *1.0e3*(self.pi_full[k] - self.pi_full[k+1])/g)
-            cicewp_in[k] = ((pf.qi[k])/ (1.0 - pf.qv[k])
+            cicewp_raw[k] = ((pf.qi[k])/ (1.0 - pf.qv[k])
                                *1.0e3*(self.pi_full[k] - self.pi_full[k+1])/g)
             # if pf.ql[k] + pf.qi[k] > ql_threshold:
-            if pf.ql[k] > ql_threshold:
-                cldfr_in[k] = 1.0
+            #if pf.ql[k] > ql_threshold:
+            #    cldfr_in[k] = 1.0
+            cldfr_raw[k] = pf.cf[k]
 
         with nogil:
             for k in xrange(nz_full):
@@ -499,18 +524,18 @@ cdef class Radiation:
 
 
                 if self.uniform_reliq:
-                    reliq_in[k] = 14.0*cldfr_in[k]
+                    reliq_raw[k] = 14.0*pf.cf[k]
                 else:
-                    reliq_in[k] = ((3.0*self.p_full[k]/Rd/tlay_in[k]*rl_full[k]/
-                                        fmax(cldfr_in[k],1.0e-6))/(4.0*pi*1.0e3*100.0))**(1.0/3.0)
-                    reliq_in[k] = fmin(fmax(reliq_in[ k]*rv_to_reff, 2.5), 60.0)
+                    reliq_raw[k] = ((3.0*self.p_full[k]/Rd/tlay_in[k]*rl_full[k]/
+                                        fmax(pf.cf[k],1.0e-6))/(4.0*pi*1.0e3*100.0))**(1.0/3.0)
+                    reliq_raw[k] = fmin(fmax(reliq_raw[ k]*rv_to_reff, 2.5), 60.0)
 
                 # Boudala et al. (2002) Eqn 10a, this is dge (generalized effective size),
                 # and is what iceflglw=3 calls for. Will only work with iceflglw=iceflgsw=3!
-                reice_in[k] = 53.005 * ((self.p_full[k]/Rd/tlay_in[k]*ri_full[k]*1.0e3)/
-                                            fmax(cldfr_in[k],1.0e-6)) ** 0.06 \
+                reice_raw[k] = 53.005 * ((self.p_full[k]/Rd/tlay_in[k]*ri_full[k]*1.0e3)/
+                                            fmax(pf.cf[k],1.0e-6)) ** 0.06 \
                                       * exp(0.013*(tlay_in[k] - 273.16))
-                reice_in[k] = fmin(fmax(reice_in[k], 5.0), 140.0) # Threshold from rrtmg sw instruction
+                reice_raw[k] = fmin(fmax(reice_raw[k], 5.0), 140.0) # Threshold from rrtmg sw instruction
 
 
             with gil:
@@ -578,9 +603,13 @@ cdef class Radiation:
         # plt.show()
 
         cdef:
+            int iplon = 1
             int ncol = n_pencils
             int nlay = nz_full
             int icld = 1
+            int irng = 1
+            int seedlw = 1
+            int seedsw = 10000
             int idrv = 0
             int iaer = 0
             int inflglw = 2
@@ -591,25 +620,34 @@ cdef class Radiation:
             int liqflgsw = 1
 
         # print('Begin RRTM calculations!')
+        c_mcica_subcol_lw (&iplon, &ncol, &nlay, &icld, &seedlw, &irng, 
+           &play_in[0], &cldfr_raw[0], &cicewp_raw[0], &cliqwp_raw[0], &reice_raw[0], &reliq_raw[0], &taucld_lw_raw[0,0],
+           &cldfr_lw_in[0,0], &cicewp_lw_in[0,0], &cliqwp_lw_in[0,0], &reice_lw_in[0], &reliq_lw_in[0], &taucld_lw_in[0,0])
+
         c_rrtmg_lw (
              &ncol    ,&nlay    ,&icld    ,&idrv,
              &play_in[0]    ,&plev_in[0]    ,&tlay_in[0]    ,&tlev_in[0]    ,&tsfc_in[0]    ,
              &h2ovmr_in[0]  ,&o3vmr_in[0]   ,&co2vmr_in[0]  ,&ch4vmr_in[0]  ,&n2ovmr_in[0]  ,&o2vmr_in[0],
              &cfc11vmr_in[0],&cfc12vmr_in[0],&cfc22vmr_in[0],&ccl4vmr_in[0] ,&emis_in[0,0]    ,
-             &inflglw ,&iceflglw,&liqflglw,&cldfr_in[0]   ,
-             &taucld_lw_in[0,0]  ,&cicewp_in[0]  ,&cliqwp_in[0]  ,&reice_in[0]   ,&reliq_in[0]   ,
+             &inflglw ,&iceflglw,&liqflglw,&cldfr_lw_in[0,0]   ,
+             &taucld_lw_in[0,0]  ,&cicewp_lw_in[0,0]  ,&cliqwp_lw_in[0,0]  ,&reice_lw_in[0]   ,&reliq_lw_in[0]   ,
              &tauaer_lw_in[0,0]  ,
              &uflx_lw_out[0]    ,&dflx_lw_out[0]    ,&hr_lw_out[0]      ,&uflxc_lw_out[0]   ,&dflxc_lw_out[0],  &hrc_lw_out[0],
              &duflx_dt_out[0],&duflxc_dt_out[0] )
         # print('Done RRTM LW!')
+        c_mcica_subcol_sw (&iplon, &ncol, &nlay, &icld, &seedsw, &irng, 
+           &play_in[0], &cldfr_raw[0], &cicewp_raw[0], &cliqwp_raw[0], &reice_raw[0], &reliq_raw[0], 
+           &taucld_sw_raw[0,0], &ssacld_sw_raw[0,0], &asmcld_sw_raw[0,0], &fsfcld_sw_raw[0,0],
+           &cldfr_sw_in[0,0], &cicewp_sw_in[0,0], &cliqwp_sw_in[0,0], &reice_sw_in[0], &reliq_sw_in[0],
+           &taucld_sw_in[0,0], &ssacld_sw_in[0,0], &asmcld_sw_in[0,0], &fsfcld_sw_in[0,0])
         c_rrtmg_sw (
             &ncol, &nlay, &icld, &iaer, &play_in[0], &plev_in[0], &tlay_in[0], &tlev_in[0],&tsfc_in[0],
             &h2ovmr_in[0], &o3vmr_in[0], &co2vmr_in[0], &ch4vmr_in[0], &n2ovmr_in[0],&o2vmr_in[0],
              &asdir_in[0]   ,&asdif_in[0]   ,&aldir_in[0]   ,&aldif_in[0]   ,
              &coszen_in[0]  ,&self.adjes   ,&self.dyofyr  ,&self.scon   ,
-             &inflgsw ,&iceflgsw,&liqflgsw,&cldfr_in[0]   ,
+             &inflgsw ,&iceflgsw,&liqflgsw,&cldfr_sw_in[0,0]   ,
              &taucld_sw_in[0,0]  ,&ssacld_sw_in[0,0]  ,&asmcld_sw_in[0,0]  ,&fsfcld_sw_in[0,0]  ,
-             &cicewp_in[0]  ,&cliqwp_in[0]  ,&reice_in[0]   ,&reliq_in[0]   ,
+             &cicewp_sw_in[0,0]  ,&cliqwp_sw_in[0,0]  ,&reice_sw_in[0]   ,&reliq_sw_in[0]   ,
              &tauaer_sw_in[0,0]  ,&ssaaer_sw_in[0,0]  ,&asmaer_sw_in[0,0]  ,&ecaer_sw_in[0,0]   ,
              &uflx_sw_out[0]    ,&dflx_sw_out[0]    ,&hr_sw_out[0]      ,&uflxc_sw_out[0]   ,&dflxc_sw_out[0], &hrc_sw_out[0])
 
