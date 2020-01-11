@@ -10,6 +10,9 @@ cdef class Radiation:
         double srf_sw_down
         double srf_sw_up
         str profile_name
+        bint read_file
+        str file
+        int site
         Py_ssize_t n_buffer
         double stretch_factor
         double patch_pressure

@@ -22,6 +22,7 @@ cimport ReadProfiles
 # from mlm_thermodynamic_functions cimport *
 import cPickle
 import pickle as pkl
+from cfsites_forcing_reader import cfreader
 
 
 # Note: the RRTM modules are compiled in the 'RRTMG' directory:
@@ -66,7 +67,18 @@ cdef class Radiation:
         self.srf_lw_up = 0.0
         self.srf_sw_down = 0.0
 
-        self.profile_name = 'cgils_ctl_s6'
+        try:
+            self.profile_name = namelist['radiation']['profile_name']
+        except:
+            self.profile_name = 'cgils_ctl_s6'
+
+        try:
+            self.read_file = namelist['radiation']['read_file']
+        except:
+            self.read_file = False
+        if self.read_file:
+            self.file = str(namelist['radiation']['file'])
+            self.site = namelist['radiation']['site']
 
         try:
             self.n_buffer = namelist['radiation']['n_buffer']
@@ -78,33 +90,77 @@ cdef class Radiation:
         except:
             self.stretch_factor = 1.0
 
-        self.patch_pressure = 100.0
+        try:
+            self.patch_pressure = namelist['radiation']['patch_pressure']
+        except:
+            self.patch_pressure = 1000.00*100.0
 
         # Namelist options related to gas concentrations
         try:
             self.co2_factor = namelist['radiation']['co2_factor']
         except:
             self.co2_factor = 1.0
-
-        self.h2o_factor = 1.0
+        try:
+            self.h2o_factor = namelist['radiation']['h2o_factor']
+        except:
+            self.h2o_factor = 1.0
 
         # Namelist options related to insolation
-        self.dyofyr = 0#80
-        self.adjes = 1.0
-        self.scon = 680.0
-        #self.coszen = 2.0/np.pi
-        self.toa_sw = namelist['radiation']['toa_sw']
-        self.coszen = self.toa_sw/self.scon
-        # self.coszen = np.cos(70./180*np.pi)/np.pi
+        try:
+            self.dyofyr = namelist['radiation']['dyofyr']
+        except:
+            self.dyofyr = 0
+        try:
+            self.adjes = namelist['radiation']['adjes']
+        except:
+            print('Insolation adjustive factor not set so RadiationRRTM takes default value: adjes = 0.5 (12 hour of daylight).')
+            self.adjes = 0.5
 
+        try:
+            self.scon = namelist['radiation']['solar_constant']
+        except:
+            print('Solar Constant not set so RadiationRRTM takes default value: scon = 1360.0 .')
+            self.scon = 1360.0
+        try:
+            self.toa_sw = namelist['radiation']['toa_sw']
+        except:
+            print('TOA shortwave not set so RadiationRRTM takes default value: toa_sw = 420.0 .')
+            self.toa_sw = 420.0
 
-        self.adif = namelist['radiation']['albedo']
-        self.adir = namelist['radiation']['albedo']
-        self.uniform_reliq = False
+        try:
+            self.coszen = namelist['radiation']['coszen']
+        except:
+            if (self.toa_sw > 420.0):
+                self.coszen = self.toa_sw / self.scon 
+            else:
+                print('Mean Daytime cos(SZA) not set so RadiationRRTM takes default value: coszen = 2.0/pi .')
+                self.coszen = 2.0/pi
+
+        try:
+            self.adif = namelist['radiation']['adif']
+        except:
+            print('Surface diffusive albedo not set so RadiationRRTM takes default value: adif = 0.06 .')
+            self.adif = 0.06
+
+        try:
+            self.adir = namelist['radiation']['adir']
+        except:
+            if (self.coszen > 0.0):
+                self.adir = (.026/(self.coszen**1.7+.065) + (.15*(self.coszen-0.10)*(self.coszen-0.50)*(self.coszen-1.00)))
+            else:
+                self.adir = 0.0
+            print('Surface direct albedo not set so RadiationRRTM computes value: adif = %5.4f .'%(self.adir))
+
+        try:
+            self.uniform_reliq = namelist['radiation']['uniform_reliq']
+        except:
+            print('uniform_reliq not set so RadiationRRTM takes default value: uniform_reliq = False.')
+            self.uniform_reliq = False
 
         try:
             self.radiation_frequency = namelist['radiation']['frequency']
         except:
+            print('radiation_frequency not set so RadiationRRTM takes default value: radiation_frequency = 0.0 (compute at every step).')
             self.radiation_frequency = 60.0
 
         self.next_radiation_calculate = 0.0
@@ -146,10 +202,16 @@ cdef class Radiation:
         # pf.get_profiles(mlm_vars)
 
         # Construct the extension of the profiles, including a blending region between the given profile and LES domain (if desired)
-        pressures = profile_data[self.profile_name]['pressure'][:]
-        temperatures = profile_data[self.profile_name]['temperature'][:]
-        vapor_mixing_ratios = profile_data[self.profile_name]['vapor_mixing_ratio'][:]
-        #specific_humidity = profile_data[self.profile_name]['specific_humidity'][:]
+        if self.read_file:
+            rdr = cfreader(self.file, self.site)
+            pressures = rdr.get_profile_mean('pfull')
+            temperatures = rdr.get_profile_mean('temp')
+            vapor_mixing_ratios = rdr.get_profile_mean('sphum')
+        else:
+            pressures = profile_data[self.profile_name]['pressure'][:]
+            temperatures = profile_data[self.profile_name]['temperature'][:]
+            vapor_mixing_ratios = profile_data[self.profile_name]['vapor_mixing_ratio'][:]
+            #specific_humidity = profile_data[self.profile_name]['specific_humidity'][:]
 
 
         dp = np.abs(pf.pressure[-1] - pf.pressure[-2])
