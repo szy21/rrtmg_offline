@@ -126,6 +126,9 @@ cdef class Radiation:
         except:
             print('TOA shortwave not set so RadiationRRTM takes default value: toa_sw = 420.0 .')
             self.toa_sw = 420.0
+        if self.read_file:
+            rdr = cfreader(self.file, self.site)
+            self.toa_sw = rdr.get_timeseries_mean('swdn_toa')
 
         try:
             self.coszen = namelist['radiation']['coszen']
