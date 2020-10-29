@@ -122,16 +122,16 @@ cdef class ReadProfiles:
     cpdef update(self,  Radiation.Radiation Ra):
 
 
-        temp_name = variable_name['temperature'][model]
-        qv_name = variable_name['qv'][model]
-        ql_name = variable_name['ql'][model]
-        qi_name = variable_name['qi'][model]
-        cf_name = variable_name['cf'][model]
+        temp_name = variable_name['temperature'][self.model]
+        qv_name = variable_name['qv'][self.model]
+        ql_name = variable_name['ql'][self.model]
+        qi_name = variable_name['qi'][self.model]
+        cf_name = variable_name['cf'][self.model]
 
         if self.average:
-            self.temperature = np.mean(self.profile_grp[temp_name][model]][self.t1:self.t2, :], axis=0)
-            self.qv = np.mean(self.profile_grp[qv_name][model]][self.t1:self.t2, :], axis=0)
-            self.ql = np.mean(self.profile_grp[ql_name][model]][self.t1:self.t2, :], axis=0)
+            self.temperature = np.mean(self.profile_grp[temp_name][self.t1:self.t2, :], axis=0)
+            self.qv = np.mean(self.profile_grp[qv_name][self.t1:self.t2, :], axis=0)
+            self.ql = np.mean(self.profile_grp[ql_name][self.t1:self.t2, :], axis=0)
             # TODO: add snow
             self.qi = np.mean(self.profile_grp[qi_name][self.t1:self.t2, :], axis=0)
             self.cf = np.mean(self.profile_grp[cf_name][self.t1:self.t2, :], axis=0)
