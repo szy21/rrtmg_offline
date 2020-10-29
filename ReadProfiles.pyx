@@ -13,6 +13,7 @@ import numpy as np
 cimport Radiation
 # import Radiation
 include 'parameters.pxi'
+from variables import variable_name
 # cimport TimeStepping
 # from NetCDFIO cimport NetCDFIO_Stats
 from libc.math cimport fmin, fabs
@@ -53,6 +54,7 @@ cdef class ReadProfiles:
 
         self.count = 0
         self.average = namelist['input']['time_average']
+        self.model = namelist['input']['model']
 
         self.fix_T = namelist['input']['fix_T']
         self.fix_qv = namelist['input']['fix_qv']
@@ -72,26 +74,40 @@ cdef class ReadProfiles:
         #Original profiles
         self.root_grp = nc.Dataset(self.path_plus_file, 'r')
         self.root_grp_ref = nc.Dataset(self.path_plus_file_ref, 'r')
-        self.profile_grp = self.root_grp.groups['profiles']
-        self.ref_grp = self.root_grp_ref.groups['reference']
-        self.ts_grp = self.root_grp.groups['timeseries']
+        if self.model=='clima':
+            self.profile_grp = self.root_grp
+            self.ref_grp = self.root_grp
+            self.ts_grp = self.root_grp
+        else:
+            self.profile_grp = self.root_grp.groups['profiles']
+            self.ref_grp = self.root_grp_ref.groups['reference']
+            self.ts_grp = self.root_grp.groups['timeseries']
         # self.root_grp.close()
 
         #Fixed profiles for PRP
         self.control_grp = nc.Dataset(self.path_plus_file_control, 'r')
-        self.profile_grp2 = self.control_grp.groups['profiles']
-        #self.ref_grp2 = self.control_grp.groups['reference']
-        self.ts_grp2 = self.control_grp.groups['timeseries']
+        if self.model=='clima':
+            self.profile_grp2 = self.control_grp
+            self.ts_grp2 = self.control_grp
+        else:
+            self.profile_grp2 = self.control_grp.groups['profiles']
+            #self.ref_grp2 = self.control_grp.groups['reference']
+            self.ts_grp2 = self.control_grp.groups['timeseries']
 
         # #Albedo
         # self.albedo_ts = self.albedo_grp.groups['timeseries']['surface_albedo'][:]
         # # self.albedo_grp.close()
+        
+        if not self.model=='clima':
+            self.pressure = self.ref_grp['p0'][:]
+            self.rho = self.ref_grp['rho0'][:]
 
-        self.pressure = self.ref_grp['p0'][:]
-        self.rho = self.ref_grp['rho0'][:]
-
-        self.nz = len(self.rho)
-        self.ntime = len(self.ts_grp['t'][:])
+        if self.model=='clima':
+            self.nz = len(self.profile_grp['z'][:])
+            self.ntime = len(self.ts_grp['time'][:])
+        else:
+            self.nz = len(self.rho)
+            self.ntime = len(self.ts_grp['t'][:])
 
         self.pressure_i = np.zeros(self.nz+1, dtype=np.double)
 
@@ -106,14 +122,22 @@ cdef class ReadProfiles:
     cpdef update(self,  Radiation.Radiation Ra):
 
 
-        if self.average:
-            self.temperature = np.mean(self.profile_grp['temperature_mean'][self.t1:self.t2, :], axis=0)
-            self.qv = np.mean(self.profile_grp['qv_mean'][self.t1:self.t2, :], axis=0)
-            self.ql = np.mean(self.profile_grp['ql_mean'][self.t1:self.t2, :], axis=0)
-            self.qi = np.mean(self.profile_grp['qi_mean'][self.t1:self.t2, :]+self.profile_grp['qs_mean'][self.t1:self.t2, :], axis=0)
-            self.cf = np.mean(self.profile_grp['cloud_fraction'][self.t1:self.t2, :], axis=0)
+        temp_name = variable_name['temperature'][model]
+        qv_name = variable_name['qv'][model]
+        ql_name = variable_name['ql'][model]
+        qi_name = variable_name['qi'][model]
+        cf_name = variable_name['cf'][model]
 
-            self.t_surface = np.mean(self.ts_grp['surface_temperature'][self.t1:self.t2])
+        if self.average:
+            self.temperature = np.mean(self.profile_grp[temp_name][model]][self.t1:self.t2, :], axis=0)
+            self.qv = np.mean(self.profile_grp[qv_name][model]][self.t1:self.t2, :], axis=0)
+            self.ql = np.mean(self.profile_grp[ql_name][model]][self.t1:self.t2, :], axis=0)
+            # TODO: add snow
+            self.qi = np.mean(self.profile_grp[qi_name][self.t1:self.t2, :], axis=0)
+            self.cf = np.mean(self.profile_grp[cf_name][self.t1:self.t2, :], axis=0)
+            
+            if not self.model=='clima':
+                self.t_surface = np.mean(self.ts_grp['surface_temperature'][self.t1:self.t2])
 
             #self.toa_sw = np.mean(self.ts_grp['toa_sw_flux'][self.t1:self.t2])
             # print(self.toa_sw)
@@ -123,25 +147,28 @@ cdef class ReadProfiles:
 
         else:
             if self.fix_T:
-                self.temperature = self.profile_grp2['temperature_mean'][self.count, :]
-                self.t_surface = self.ts_grp2['surface_temperature'][self.count]
+                self.temperature = self.profile_grp2[temp_name][self.count, :]
+                if not self.model=='clima':
+                    self.t_surface = self.ts_grp2['surface_temperature'][self.count]
             else:
-                self.temperature = self.profile_grp['temperature_mean'][self.count, :]
-                self.t_surface = self.ts_grp['surface_temperature'][self.count]
+                self.temperature = self.profile_grp[temp_name][self.count, :]
+                if not self.model=='clima':
+                    self.t_surface = self.ts_grp['surface_temperature'][self.count]
 
             if self.fix_qv:
-                self.qv = self.profile_grp2['qv_mean'][self.count, :]
+                self.qv = self.profile_grp2[qv_name][self.count, :]
             else:
-                self.qv = self.profile_grp['qv_mean'][self.count, :]
+                self.qv = self.profile_grp[qv_name][self.count, :]
 
             #if self.fix_albedo:
             #    self.albedo = self.ts_grp2['surface_albedo'][self.count]
             #else:
             #    self.albedo = self.ts_grp['surface_albedo'][self.count]
 
-            self.ql = self.profile_grp['ql_mean'][self.count, :]
-            self.qi = self.profile_grp['qi_mean'][self.count, :]+self.profile_grp['qs_mean'][self.count, :]
-            self.cf = self.profile_grp['cloud_fraction'][self.count, :]
+            self.ql = self.profile_grp[ql_name][self.count, :]
+            # TODO: add snow
+            self.qi = self.profile_grp[qi_name][self.count, :]
+            self.cf = self.profile_grp[cf_name][self.count, :]
 
             #self.toa_sw = self.ts_grp['toa_sw_flux'][self.count]
             # print(self.toa_sw)

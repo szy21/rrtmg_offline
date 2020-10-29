@@ -16,7 +16,7 @@ cdef class Radiation:
         Py_ssize_t n_buffer
         double stretch_factor
         double patch_pressure
-
+        double t_surface
         double co2_factor
         double h2o_factor
         int dyofyr

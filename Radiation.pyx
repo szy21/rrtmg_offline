@@ -128,7 +128,7 @@ cdef class Radiation:
             self.toa_sw = 420.0
         if self.read_file:
             rdr = cfreader(self.file, self.site)
-            self.toa_sw = rdr.get_timeseries_mean('swdn_toa')
+            self.toa_sw = rdr.get_timeseries_mean('rsdt')
 
         try:
             self.coszen = namelist['radiation']['coszen']
@@ -204,12 +204,16 @@ cdef class Radiation:
 
         # pf.get_profiles(mlm_vars)
 
+        if not pf.model=='clima':
+            self.t_surface = pf.t_surface
         # Construct the extension of the profiles, including a blending region between the given profile and LES domain (if desired)
         if self.read_file:
             rdr = cfreader(self.file, self.site)
             pressures = rdr.get_profile_mean('pfull')
-            temperatures = rdr.get_profile_mean('temp')
-            vapor_mixing_ratios = rdr.get_profile_mean('sphum')
+            temperatures = rdr.get_profile_mean('ta')
+            vapor_mixing_ratios = rdr.get_profile_mean('hus')
+            if pf.model=='clima':
+                self.t_surface = rdr.get_timeseries_mean('ts')
         else:
             pressures = profile_data[self.profile_name]['pressure'][:]
             temperatures = profile_data[self.profile_name]['temperature'][:]
@@ -488,7 +492,7 @@ cdef class Radiation:
             double [:] plev_in = np.zeros((nz_full + 1), dtype=np.double, order='F')
             double [:] tlay_in = np.zeros((nz_full,), dtype=np.double, order='F')
             double [:] tlev_in = np.zeros((nz_full + 1), dtype=np.double, order='F')
-            double [:] tsfc_in = np.ones((n_pencils),dtype=np.double,order='F') * pf.t_surface
+            double [:] tsfc_in = np.ones((n_pencils),dtype=np.double,order='F') * self.t_surface
             double [:] h2ovmr_in = np.zeros((nz_full,),dtype=np.double,order='F')
             double [:] o3vmr_in  = np.zeros((nz_full,),dtype=np.double,order='F')
             double [:] co2vmr_in = np.zeros((nz_full,),dtype=np.double,order='F')
@@ -604,7 +608,7 @@ cdef class Radiation:
 
 
             with gil:
-                tlev_in[0] = pf.t_surface
+                tlev_in[0] = self.t_surface
             plev_in[0] = self.pi_full[0]/100.0
             for k in xrange(1,nz_full):
                 tlev_in[k] = 0.5*(tlay_in[k-1]+tlay_in[k])

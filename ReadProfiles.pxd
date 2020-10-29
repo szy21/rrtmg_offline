@@ -22,6 +22,7 @@ cdef class ReadProfiles:
         Py_ssize_t t1
         Py_ssize_t t2
 
+        str model
         str path_plus_file
         str path_plus_file_control
         str path_plus_file_ref
