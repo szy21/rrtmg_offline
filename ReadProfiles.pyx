@@ -28,16 +28,18 @@ cdef class ReadProfiles:
         self.path_plus_file = str(namelist['input']['path'])+str(namelist['input']['file'])
         print(self.path_plus_file)
 
-        self.path_plus_file_ref = str(namelist['input']['ref_path'])+str(namelist['input']['ref_file'])
+        self.path_plus_file_ref = self.path_plus_file
 
-        if str(namelist['input']['case']) == str(namelist['input']['control_case']):
+        try:
+            self.path_plus_file_control = str(namelist['input']['control_path'])+str(namelist['input']['control_file'])
+        except:
+            self.path_plus_file_control = self.path_plus_file
+        
+        if self.path_plus_file_control == self.path_plus_file:
             self.out_file = str(namelist['input']['path'])+'RRTM_'+str(namelist['input']['file'])
         else:
             self.out_file = str(namelist['input']['path'])+'RRTM_control_'+str(namelist['input']['file'])
-        self.path_plus_file_control = str(namelist['input']['control_path'])+str(namelist['input']['control_file'])
-
-
-        self.path = str(namelist['input']['path'])
+        #self.path = str(namelist['input']['path'])
         #self.albedo = namelist['input']['albedo']
         #self.toa_sw = namelist['input']['toa_sw']
 
@@ -54,7 +56,7 @@ cdef class ReadProfiles:
 
         self.count = 0
         self.average = namelist['input']['time_average']
-        self.model = namelist['input']['model']
+        self.model = str(namelist['input']['model'])
 
         self.fix_T = namelist['input']['fix_T']
         self.fix_qv = namelist['input']['fix_qv']
@@ -93,7 +95,7 @@ cdef class ReadProfiles:
             self.profile_grp2 = self.control_grp.groups['profiles']
             #self.ref_grp2 = self.control_grp.groups['reference']
             self.ts_grp2 = self.control_grp.groups['timeseries']
-
+        
         # #Albedo
         # self.albedo_ts = self.albedo_grp.groups['timeseries']['surface_albedo'][:]
         # # self.albedo_grp.close()
@@ -108,13 +110,14 @@ cdef class ReadProfiles:
         else:
             self.nz = len(self.rho)
             self.ntime = len(self.ts_grp['t'][:])
-
-        self.pressure_i = np.zeros(self.nz+1, dtype=np.double)
-
-        for i in xrange(self.nz-1):
-            self.pressure_i[i+1] = (self.pressure[i] + self.pressure[i+1])*0.5
-        self.pressure_i[0] = self.pressure[0]*2 - self.pressure_i[1]#(self.pressure[0] - self.pressure[1]) + self.pressure[0]
-        self.pressure_i[-1] = 2.0 * self.pressure[-1] - self.pressure_i[-2]
+        
+        if not self.model=='clima':
+            self.pressure_i = np.zeros(self.nz+1, dtype=np.double)
+        
+            for i in xrange(self.nz-1):
+                self.pressure_i[i+1] = (self.pressure[i] + self.pressure[i+1])*0.5
+            self.pressure_i[0] = self.pressure[0]*2 - self.pressure_i[1]#(self.pressure[0] - self.pressure[1]) + self.pressure[0]
+            self.pressure_i[-1] = 2.0 * self.pressure[-1] - self.pressure_i[-2]
 
         return
 
@@ -127,6 +130,7 @@ cdef class ReadProfiles:
         ql_name = variable_name['ql'][self.model]
         qi_name = variable_name['qi'][self.model]
         cf_name = variable_name['cf'][self.model]
+        pres_name = variable_name['pressure'][self.model]
 
         if self.average:
             self.temperature = np.mean(self.profile_grp[temp_name][self.t1:self.t2, :], axis=0)
@@ -136,7 +140,9 @@ cdef class ReadProfiles:
             self.qi = np.mean(self.profile_grp[qi_name][self.t1:self.t2, :], axis=0)
             self.cf = np.mean(self.profile_grp[cf_name][self.t1:self.t2, :], axis=0)
             
-            if not self.model=='clima':
+            if self.model=='clima':
+                self.pressure = np.mean(self.profile_grp[pres_name][self.t1:self.t2, :], axis=0)
+            else:
                 self.t_surface = np.mean(self.ts_grp['surface_temperature'][self.t1:self.t2])
 
             #self.toa_sw = np.mean(self.ts_grp['toa_sw_flux'][self.t1:self.t2])
@@ -148,11 +154,15 @@ cdef class ReadProfiles:
         else:
             if self.fix_T:
                 self.temperature = self.profile_grp2[temp_name][self.count, :]
-                if not self.model=='clima':
+                if self.model=='clima':
+                    self.pressure = self.profile_grp2[pres_name][self.count, :]
+                else:
                     self.t_surface = self.ts_grp2['surface_temperature'][self.count]
             else:
                 self.temperature = self.profile_grp[temp_name][self.count, :]
-                if not self.model=='clima':
+                if self.model=='clima':
+                    self.pressure = self.profile_grp[pres_name][self.count, :]
+                else:
                     self.t_surface = self.ts_grp['surface_temperature'][self.count]
 
             if self.fix_qv:
@@ -180,6 +190,13 @@ cdef class ReadProfiles:
             print(self.count)
 
         # self.root_grp.close()
+        if self.model=='clima':
+            self.pressure_i = np.zeros(self.nz+1, dtype=np.double)
+
+            for i in xrange(self.nz-1):
+                self.pressure_i[i+1] = (self.pressure[i] + self.pressure[i+1])*0.5
+            self.pressure_i[0] = self.pressure[0]*2 - self.pressure_i[1]#(self.pressure[0] - self.pressure[1]) + self.pressure[0]
+            self.pressure_i[-1] = 2.0 * self.pressure[-1] - self.pressure_i[-2]
 
         return
 
