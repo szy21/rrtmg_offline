@@ -62,6 +62,9 @@ cdef class ReadProfiles:
         self.fix_qv = namelist['input']['fix_qv']
         self.fix_cloud = namelist['input']['fix_cloud']
         self.fix_albedo = namelist['input']['fix_albedo']
+        
+        if self.average:
+            self.out_file = str(namelist['input']['path'])+'RRTM_avg_'+str(namelist['input']['file'])
 
         if self.fix_T:
             self.out_file = str(namelist['input']['path'])+'RRTM_control_fixT_'+str(namelist['input']['file'])
@@ -139,6 +142,7 @@ cdef class ReadProfiles:
             # TODO: add snow
             self.qi = np.mean(self.profile_grp[qi_name][self.t1:self.t2, :], axis=0)
             self.cf = np.mean(self.profile_grp[cf_name][self.t1:self.t2, :], axis=0)
+            self.ntime = 1
             
             if self.model=='clima':
                 self.pressure = np.mean(self.profile_grp[pres_name][self.t1:self.t2, :], axis=0)
@@ -186,18 +190,18 @@ cdef class ReadProfiles:
 
             # self.albedo = self.albedo_ts[self.count]
             # print(self.albedo)
-            self.count += 1
-            print(self.count)
-
-        # self.root_grp.close()
         if self.model=='clima':
             self.pressure_i = np.zeros(self.nz+1, dtype=np.double)
-
             for i in xrange(self.nz-1):
                 self.pressure_i[i+1] = (self.pressure[i] + self.pressure[i+1])*0.5
             self.pressure_i[0] = self.pressure[0]*2 - self.pressure_i[1]#(self.pressure[0] - self.pressure[1]) + self.pressure[0]
             self.pressure_i[-1] = 2.0 * self.pressure[-1] - self.pressure_i[-2]
 
+        self.count += 1
+        print(self.count)
+
+        # self.root_grp.close()
+        
         return
 
     # cpdef stats_io(self, NetCDFIO_Stats NS):
