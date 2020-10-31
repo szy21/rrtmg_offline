@@ -559,6 +559,8 @@ cdef class Radiation:
 
             double rv_to_reff = np.exp(np.log(1.2)**2.0)*10.0*1000.0
 
+        self.p_full[0:nz] = pf.pressure
+        self.pi_full[0:nz] = pf.pressure_i[:-1]
         # with nogil:
         for k in xrange(nz, nz_full):
             tlay_in[k] = self.t_ext[k-nz]
