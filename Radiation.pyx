@@ -152,7 +152,7 @@ cdef class Radiation:
                 self.adir = (.026/(self.coszen**1.7+.065) + (.15*(self.coszen-0.10)*(self.coszen-0.50)*(self.coszen-1.00)))
             else:
                 self.adir = 0.0
-            print('Surface direct albedo not set so RadiationRRTM computes value: adif = %5.4f .'%(self.adir))
+            print('Surface direct albedo not set so RadiationRRTM computes value: adir = %5.4f .'%(self.adir))
 
         try:
             self.uniform_reliq = namelist['radiation']['uniform_reliq']

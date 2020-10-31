@@ -17,4 +17,4 @@ plot_script.py
 lsf.o*
 extra/
 input/
-log/
+run/
