@@ -443,10 +443,11 @@ cdef class Radiation:
         root_grp = nc.Dataset(pf.out_file, 'w', format='NETCDF4')
         root_grp.createDimension('z', len(self.pi_full))
         root_grp.createDimension('t', None)
-        pi_full = root_grp.createVariable('pi_full', 'f8', ('z'))
-        pi_full[:] = np.array(self.pi_full)
+        pi_full_ref = root_grp.createVariable('pi_full_ref', 'f8', ('z'))
+        pi_full_ref[:] = np.array(self.pi_full)
         root_grp.createVariable('t', 'f8', ('t'))
 
+        root_grp.createVariable('pi_full', 'f8', ('t', 'z'))
         root_grp.createVariable('uflx_lw', 'f8', ('t', 'z'))
         root_grp.createVariable('uflxc_lw', 'f8', ('t', 'z'))
         root_grp.createVariable('dflx_lw', 'f8', ('t', 'z'))
@@ -796,6 +797,10 @@ cdef class Radiation:
         #First write time
         rrtm_t = root_grp.variables['t']
         rrtm_t[rrtm_t.shape[0]] = pf.count
+
+        var = None
+        var = root_grp.variables['pi_full']
+        var[-1, :] = np.array(self.pi_full)
 
         var = None
         var = root_grp.variables['uflx_lw']
