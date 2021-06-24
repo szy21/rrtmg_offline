@@ -87,8 +87,8 @@ cdef class ReadProfiles:
         # self.albedo_ts = self.albedo_grp.groups['timeseries']['surface_albedo'][:]
         # # self.albedo_grp.close()
 
-        self.pressure = self.ref_grp['p0'][:]
-        self.rho = self.ref_grp['rho0'][:]
+        self.pressure = self.ref_grp['p0_half'][:]
+        self.rho = self.ref_grp['rho0_half'][:]
 
         self.nz = len(self.rho)
         self.ntime = len(self.ts_grp['t'][:])
@@ -108,12 +108,14 @@ cdef class ReadProfiles:
 
         if self.average:
             self.temperature = np.mean(self.profile_grp['temperature_mean'][self.t1:self.t2, :], axis=0)
-            self.qv = np.mean(self.profile_grp['qv_mean'][self.t1:self.t2, :], axis=0)
+            self.qt = np.mean(self.profile_grp['qt_mean'][self.t1:self.t2, :], axis=0)
             self.ql = np.mean(self.profile_grp['ql_mean'][self.t1:self.t2, :], axis=0)
-            self.qi = np.mean(self.profile_grp['qi_mean'][self.t1:self.t2, :]+self.profile_grp['qs_mean'][self.t1:self.t2, :], axis=0)
-            self.cf = np.mean(self.profile_grp['cloud_fraction'][self.t1:self.t2, :], axis=0)
+            self.qv = np.subtract(self.qt, self.ql)
+            #self.qi = np.mean(self.profile_grp['qi_mean'][self.t1:self.t2, :]+self.profile_grp['qs_mean'][self.t1:self.t2, :], axis=0)
+            self.qi = np.multiply(self.qv, 0.0)
+            self.cf = np.mean(self.profile_grp['cloud_fraction_mean'][self.t1:self.t2, :], axis=0)
 
-            self.t_surface = np.mean(self.ts_grp['surface_temperature'][self.t1:self.t2])
+            self.t_surface = np.mean(self.ts_grp['Tsurface'][self.t1:self.t2])
 
             #self.toa_sw = np.mean(self.ts_grp['toa_sw_flux'][self.t1:self.t2])
             # print(self.toa_sw)
@@ -124,15 +126,15 @@ cdef class ReadProfiles:
         else:
             if self.fix_T:
                 self.temperature = self.profile_grp2['temperature_mean'][self.count, :]
-                self.t_surface = self.ts_grp2['surface_temperature'][self.count]
+                self.t_surface = self.ts_grp2['Tsurface'][self.count]
             else:
                 self.temperature = self.profile_grp['temperature_mean'][self.count, :]
-                self.t_surface = self.ts_grp['surface_temperature'][self.count]
+                self.t_surface = self.ts_grp['Tsurface'][self.count]
 
             if self.fix_qv:
-                self.qv = self.profile_grp2['qv_mean'][self.count, :]
+                self.qt = self.profile_grp2['qt_mean'][self.count, :]
             else:
-                self.qv = self.profile_grp['qv_mean'][self.count, :]
+                self.qt = self.profile_grp['qt_mean'][self.count, :]
 
             #if self.fix_albedo:
             #    self.albedo = self.ts_grp2['surface_albedo'][self.count]
@@ -140,8 +142,10 @@ cdef class ReadProfiles:
             #    self.albedo = self.ts_grp['surface_albedo'][self.count]
 
             self.ql = self.profile_grp['ql_mean'][self.count, :]
-            self.qi = self.profile_grp['qi_mean'][self.count, :]+self.profile_grp['qs_mean'][self.count, :]
-            self.cf = self.profile_grp['cloud_fraction'][self.count, :]
+            self.qv = np.subtract(self.qt, self.ql)
+            #self.qi = self.profile_grp['qi_mean'][self.count, :]+self.profile_grp['qs_mean'][self.count, :]
+            self.qi = np.multiply(self.qv, 0.0)
+            self.cf = self.profile_grp['cloud_fraction_mean'][self.count, :]
 
             #self.toa_sw = self.ts_grp['toa_sw_flux'][self.count]
             # print(self.toa_sw)
